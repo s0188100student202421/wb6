@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Форма обратной связи</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <form action="/" method="POST" class="form">
+      <div>
+        <div class="head">
+          <h2><b>Форма обратной связи</b></h2>
+        </div>
+
+        <!-- скрытое поле для токена, которое подставляется сервером -->
+        <input type="hidden" name="form_token" value="{{form_token}}" />
+
+        <!-- Поле для ФИО с возможной ошибкой -->
+        <div>
+          <label>
+            <input name="fio" class="input" placeholder="ФИО" required value="{{fio}}" />
+          </label>
+          <!-- Ошибка для ФИО, если она есть -->
+          <span class="error" id="error_fio">{{error_fio}}</span>
+        </div>
+
+        <!-- Поле для телефона с возможной ошибкой -->
+        <div>
+          <label>
+            <input type="tel" name="phone" class="input" placeholder="Номер телефона" required value="{{phone}}" />
+          </label>
+          <!-- Ошибка для телефона, если она есть -->
+          <span class="error" id="error_phone">{{error_phone}}</span>
+        </div>
+
+        <!-- Поле для email с возможной ошибкой -->
+        <div>
+          <label>
+            <input name="email" type="email" class="input" placeholder="Почта" required value="{{email}}" />
+          </label>
+          <!-- Ошибка для email, если она есть -->
+          <span class="error" id="error_email">{{error_email}}</span>
+        </div>
+
+        <!-- Поле для даты -->
+        <div>
+          <label>
+            <input name="date" class="input" type="date" value="{{date}}" />
+          </label>
+          <!-- Ошибка для date, если она есть -->
+          <span class="error" id="error_date">{{error_date}}</span>
+        </div>
+
+        <!-- Поля для выбора пола -->
+        <div>
+          <div>Пол</div>
+          <div class="mb-1">
+            <label>
+              <input type="radio" name="gender" value="M" required {{#if gender == 'M'}}checked{{/if}} /> М
+            </label>
+            <label>
+              <input type="radio" name="gender" value="F" required {{#if gender == 'F'}}checked{{/if}} /> Ж
+            </label>
+          </div>
+          <span class="error" id="error_gender">{{error_gender}}</span>
+        </div>
+
+        <!-- Множественный выбор для любимого языка программирования -->
+        <div>
+          <label class="input">
+            <div>Любимый язык программирования</div>
+            <select class="my-2" name="languages" multiple="multiple">
+              <option value="e9b5f1b2-0db6-4fcf-9e79-83ff91a4c79b" {{#if languages contains 'Pascal'}}selected{{/if}}>Pascal</option>
+              <option value="77ac0d79-2fe0-40cf-91bc-6b490080c053" {{#if languages contains 'C'}}selected{{/if}}>C</option>
+              <option value="01bbf531-2f97-428b-b1f8-01518e771ff4" {{#if languages contains 'C++'}}selected{{/if}}>C++</option>
+              <option value="d7740e8d-11ed-4b3f-89a0-e25a00e28bbd" {{#if languages contains 'JavaScript'}}selected{{/if}}>JavaScript</option>
+              <option value="b7637f64-61b7-4bcf-a92c-1106cfc6d6e3" {{#if languages contains 'PHP'}}selected{{/if}}>PHP</option>
+              <option value="d1ffcccb-6359-4739-a49f-0b9f7245fa60" {{#if languages contains 'Python'}}selected{{/if}}>Python</option>
+              <option value="c17aefc4-e5b0-4786-9e13-2726f8f8a79c" {{#if languages contains 'Java'}}selected{{/if}}>Java</option>
+              <option value="9e34cb66-4ee8-43b1-917f-f25e4cbe8816" {{#if languages contains 'Haskell'}}selected{{/if}}>Haskell</option>
+              <option value="c9dbab3f-d1d7-41cf-81cc-fd8b8d94da39" {{#if languages contains 'Clojure'}}selected{{/if}}>Clojure</option>
+              <option value="ad2d9b2b-47f1-49e2-90b5-23dfe6fdac7f" {{#if languages contains 'Scala'}}selected{{/if}}>Scala</option>
+            </select>
+          </label>
+          <span class="error" id="error_languages">{{error_languages}}</span>
+        </div>
+
+        <!-- Поле для биографии -->
+        <div class="biography">
+          <div>Биография</div>
+          <label>
+            <textarea class="input" name="bio" placeholder="Биография" required>{{bio}}</textarea>
+          </label>
+          <span class="error" id="error_bio">{{error_bio}}</span>
+        </div>
+
+        <!-- Чекбокс для подтверждения -->
+        <div class="form-group informed">
+          <label class="">
+            <label>
+              <input id="informed" type="checkbox" name="check" required {{#if check == 'on'}}checked{{/if}} /> с контрактом ознакомлен(а)
+            </label>
+          </label>
+          <span class="error" id="error_check">{{error_check}}</span>
+        </div>
+
+        <!-- Кнопка отправки формы -->
+        <button type="submit" class="button my-3">Отправить</button>
+      </div>
+    </form>
+  </body>
+</html>
