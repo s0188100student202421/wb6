@@ -65,7 +65,7 @@ def hash_password(password):
 
 class HttpProcessor(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path.startswith("/static/"):
+        if self.path.startswith("/wb6/static/"):
             try:
                 mime_type = "text/css"
                 with open(self.path[1:], 'rb') as file:
