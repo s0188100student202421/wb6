@@ -12,6 +12,7 @@ import os
 import hashlib            
 import datetime       
 
+# В методе get мы отрисовываем новую форму просто+заполняем ее значениями из бд соотвественно, отображаем для пользователя+ кнопка submit и уже в пост методе 
 
 #----------Получение и настройка секретного ключа для JWT-------------------
 SECRET_KEY = os.environ.get('JWT_SECRET_KEY') 
@@ -60,6 +61,7 @@ def hash_password(password):
 
 #def fill_cookie ???
 
+# +++++++++same++++++++++++
 
 class HttpProcessor(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -261,6 +263,64 @@ class HttpProcessor(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(f"Database error: {e}".encode('utf-8'))
+        elif self.path.startswith("/admin/edit/"):
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            try:
+                with open('server.html', 'r', encoding='utf-8') as file:
+                    html_content = file.read()
+            except FileNotFoundError:
+                self.wfile.write(b"server.html not found")
+                return
+
+            app_id = self.path.split('/')[-1]
+            try:
+                connection = mysql.connector.connect(
+                    host='localhost',
+                    database='u68824',
+                    user='u68824',
+                    password='MyStrongPass'
+                )
+                if connection.is_connected():
+                    cursor = connection.cursor()
+                    cursor.execute("""
+                        SELECT * FROM applications WHERE id = %s
+                    """,(app_id,))
+                    application = cursor.fetchall()
+
+                    form_data = {
+                        'fio': application['fio'],
+                        'phone': application['phone'],
+                        'email': application['email'],
+                        'date': application['date'],
+                        'bio': application['bio'],
+                        'languages': application['languages'],
+                        'gender': application['gender'],
+                        'check': application['check']
+                    }
+
+                    for field, value in form_data.items():
+                        if value:
+                            if isinstance(value, cookies.Morsel):
+                                decoded = safe_base64_decode(value.value)
+                            else:
+                                decoded = safe_base64_decode(value)
+                            html_content = html_content.replace(f"{{{{{field}}}}}", decoded)
+                        else:
+                            html_content = html_content.replace(f"{{{{{field}}}}}", "")
+
+                    self.wfile.write(html_content.encode('utf-8'))
+
+
+            except Error as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(f"Database error: {e}".encode('utf-8'))
+
+
+            
         else:
             self.send_response(404)
             self.end_headers()
@@ -321,6 +381,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(f"Database error: {e}".encode('utf-8'))
+
         elif self.path.startswith("/admin/delete/"):
             cookie = cookies.SimpleCookie(self.headers.get('Cookie'))
             auth_token = cookie.get("auth_token")
@@ -336,6 +397,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b"Forbidden: You are not an admin")
             app_id = self.path.split('/')[-1]
+
             try:
                 connection = mysql.connector.connect(
                     host='localhost',
@@ -357,6 +419,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(f"Database error: {e}".encode('utf-8'))
+
         elif self.path == "/login":
             form = cgi.FieldStorage(
                 fp=self.rfile, 
@@ -388,6 +451,9 @@ class HttpProcessor(BaseHTTPRequestHandler):
                         user_id, stored_hash = result
                         if stored_hash == hash_password(password_input):
                             token = generate_jwt(user_id, role)
+
+                            full_cookie(args , kwarg ) ?
+                            # +++++++++same++++++++++++
                             cookie = cookies.SimpleCookie()
                             cookie["auth_token"] = token
                             cookie["auth_token"]["path"] = "/"
@@ -400,6 +466,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                             cookie["user_id"]["httponly"] = True
                             self.send_response(302)
                             self.send_header("Location", "/")
+                            # +++++++++same++++++++++++
                             for morsel in cookie.values():
                                 self.send_header("Set-Cookie", morsel.OutputString())
                             self.end_headers()
@@ -422,7 +489,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                             user_id = cursor.lastrowid
                             connection.commit()
                             token = generate_jwt(user_id,role)
-
+                            # +++++++++same++++++++++++
                             cookie = cookies.SimpleCookie()
                             cookie["auth_token"] = token
                             cookie["auth_token"]["path"] = "/"
@@ -435,6 +502,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                             cookie["user_id"]["httponly"] = True
                             self.send_response(302)
                             self.send_header("Location", "/")
+                            # +++++++++same++++++++++++
                             for morsel in cookie.values():
                                 self.send_header("Set-Cookie", morsel.OutputString())
                             self.end_headers()
@@ -505,6 +573,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                 errors["check"] = "Необходимо согласие с контрактом."
 
             if errors:
+                # +++++++++same++++++++++++
                 cookie = cookies.SimpleCookie()
                 for field in ['fio', 'phone', 'email', 'date', 'bio', 'gender', 'check','date']:
                     value = locals().get(field, '')
@@ -526,6 +595,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
 
                 self.send_response(302)
                 self.send_header('Location', '/')
+                # +++++++++same++++++++++++
                 for morsel in cookie.values():
                     self.send_header('Set-Cookie', morsel.OutputString())
                 self.end_headers()
@@ -569,7 +639,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                     connection.commit()
                     cursor.close()
                     connection.close()
-
+                    # +++++++++same++++++++++++
                     cookie = cookies.SimpleCookie()
                     for field in ['fio', 'phone', 'email', 'date', 'bio', 'gender', 'check']:
                         cookie[field] = ""
@@ -582,7 +652,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                     cookie['errors'] = ""
                     cookie['errors']['path'] = '/'
                     cookie['errors']['max-age'] = 0
-
+                    # +++++++++same++++++++++++
                     self.send_response(200)
                     self.send_header('Content-Type', 'text/html; charset=utf-8')
                     for morsel in cookie.values():
