@@ -4,10 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Форма обратной связи</title>
-    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <form action="/wb6/" method="POST" class="form">
+    <form action="/admin/edit/{{app_id}}" method="POST" class="form">
       <div>
         <div class="head">
           <h2><b>Форма обратной связи</b></h2>
@@ -71,17 +71,17 @@
           <label class="input">
             <div>Любимый язык программирования</div>
             <select class="my-2" name="languages" multiple="multiple">
-              <option value="Pascal" {{#if languages contains 'Pascal'}}selected{{/if}}>Pascal</option>
-              <option value="C" {{#if languages contains 'C'}}selected{{/if}}>C</option>
-              <option value="C++" {{#if languages contains 'C++'}}selected{{/if}}>C++</option>
-              <option value="JavaScript" {{#if languages contains 'JavaScript'}}selected{{/if}}>JavaScript</option>
-              <option value="PHP" {{#if languages contains 'PHP'}}selected{{/if}}>PHP</option>
-              <option value="Python" {{#if languages contains 'Python'}}selected{{/if}}>Python</option>
-              <option value="Java" {{#if languages contains 'Java'}}selected{{/if}}>Java</option>
-              <option value="Haskell" {{#if languages contains 'Haskell'}}selected{{/if}}>Haskell</option>
-              <option value="Clojure" {{#if languages contains 'Clojure'}}selected{{/if}}>Clojure</option>
-              <option value="Scala" {{#if languages contains 'Scala'}}selected{{/if}}>Scala</option>
-            </select>
+                <option value="Pascal" {{#if languages contains 'Pascal'}}selected{{/if}}>Pascal</option>
+                <option value="C" {{#if languages contains 'C'}}selected{{/if}}>C</option>
+                <option value="C++" {{#if languages contains 'C++'}}selected{{/if}}>C++</option>
+                <option value="JavaScript" {{#if languages contains 'JavaScript'}}selected{{/if}}>JavaScript</option>
+                <option value="PHP" {{#if languages contains 'PHP'}}selected{{/if}}>PHP</option>
+                <option value="Python" {{#if languages contains 'Python'}}selected{{/if}}>Python</option>
+                <option value="Java" {{#if languages contains 'Java'}}selected{{/if}}>Java</option>
+                <option value="Haskell" {{#if languages contains 'Haskell'}}selected{{/if}}>Haskell</option>
+                <option value="Clojure" {{#if languages contains 'Clojure'}}selected{{/if}}>Clojure</option>
+                <option value="Scala" {{#if languages contains 'Scala'}}selected{{/if}}>Scala</option>
+              </select>
           </label>
           <span class="error" id="error_languages">{{error_languages}}</span>
         </div>

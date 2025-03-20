@@ -65,7 +65,19 @@ def hash_password(password):
 
 class HttpProcessor(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path.startswith("/login"):
+        if self.path.startswith("/static/"):
+            try:
+                mime_type = "text/css"
+                with open(self.path[1:], 'rb') as file:
+                    content = file.read()
+                self.send_response(200)
+                self.send_header('Content-Type', mime_type)
+                self.end_headers()
+                self.wfile.write(content)
+            except FileNotFoundError:
+                self.send_error(404, "File not found")
+
+        elif self.path.startswith("/wb6/login"):
             self.send_response(200)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
@@ -75,12 +87,12 @@ class HttpProcessor(BaseHTTPRequestHandler):
                 self.wfile.write(content.encode('utf-8'))
             except FileNotFoundError:
                 self.wfile.write(b"login.html not found")
-        elif self.path == "/":
+        elif self.path == "/wb6/":
             cookie = cookies.SimpleCookie(self.headers.get('Cookie'))
             auth_token = cookie.get("auth_token")
             if not auth_token or not verify_jwt(auth_token.value):
                 self.send_response(302)
-                self.send_header("Location", "/login")
+                self.send_header("Location", "/wb6/login")
                 self.end_headers()
                 return
 
@@ -135,15 +147,15 @@ class HttpProcessor(BaseHTTPRequestHandler):
                     if field not in error_dict:
                         html_content = html_content.replace(f"{{{{error_{field}}}}}", "")
             else:
-                for field in ['fio', 'phone', 'email', 'bio', 'languages', 'gender', 'check']:
+                for field in ['fio', 'phone', 'email', 'bio', 'languages', 'gender', 'check', 'date']:
                     html_content = html_content.replace(f"{{{{error_{field}}}}}", " ")
             self.wfile.write(html_content.encode('utf-8'))
-        elif self.path == "/admin":
+        elif self.path == "/wb6/admin":
             cookie = cookies.SimpleCookie(self.headers.get('Cookie'))
             auth_token = cookie.get("auth_token")
             if not auth_token or not verify_jwt(auth_token.value):
                 self.send_response(302)
-                self.send_header("Location", "/login")
+                self.send_header("Location", "/wb6/login")
                 self.end_headers()
                 return 
             payload = verify_jwt(auth_token.value)
@@ -158,10 +170,10 @@ class HttpProcessor(BaseHTTPRequestHandler):
 
             try:
                 connection = mysql.connector.connect(
-                    host='localhost',
+                    host='u68824_3',
                     database='u68824',
                     user='u68824',
-                    password='MyStrongPass'
+                    password='u68824'
                 )
                 if connection.is_connected():
                     cursor = connection.cursor(dictionary=True)
@@ -232,8 +244,8 @@ class HttpProcessor(BaseHTTPRequestHandler):
                                 <td>{app['bio']}</td>
                                 <td>{app['agreement']}</td>
                                 <td>
-                                    <a href="/admin/edit/{app['id']}">Edit</a>
-                                    <a href="/admin/delete/{app['id']}">Delete</a>
+                                    <a href="/wb6/admin/edit/{app['id']}">Edit</a>
+                                    <a href="/wb6/admin/delete/{app['id']}">Delete</a>
                                 </td>
                             </tr>
                         """
@@ -263,75 +275,102 @@ class HttpProcessor(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(f"Database error: {e}".encode('utf-8'))
-        elif self.path.startswith("/admin/edit/"):
-
+        elif self.path.startswith("/wb6/admin/edit/"):
             self.send_response(200)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
             try:
-                with open('server.html', 'r', encoding='utf-8') as file:
+                with open('form-edit.html', 'r', encoding='utf-8') as file:
                     html_content = file.read()
             except FileNotFoundError:
                 self.wfile.write(b"server.html not found")
                 return
 
             app_id = self.path.split('/')[-1]
+            if app_id == "style.css": return 
+            html_content = html_content.replace("{{app_id}}", app_id)
             try:
                 connection = mysql.connector.connect(
-                    host='localhost',
+                    host='u68824_3',
                     database='u68824',
                     user='u68824',
-                    password='MyStrongPass'
+                    password='u68824'
                 )
                 if connection.is_connected():
                     cursor = connection.cursor()
                     cursor.execute("""
                         SELECT * FROM applications WHERE id = %s
                     """,(app_id,))
-                    application = cursor.fetchall()
-
+                    application = cursor.fetchall()[0]
+                    cursor.close()
                     form_data = {
-                        'fio': application['fio'],
-                        'phone': application['phone'],
-                        'email': application['email'],
-                        'date': application['date'],
-                        'bio': application['bio'],
-                        'languages': application['languages'],
-                        'gender': application['gender'],
-                        'check': application['check']
+                        'fio': application[1],
+                        'phone': application[3],
+                        'email': application[4],
+                        'bio': application[6]
                     }
-
                     for field, value in form_data.items():
                         if value:
-                            if isinstance(value, cookies.Morsel):
-                                decoded = safe_base64_decode(value.value)
-                            else:
-                                decoded = safe_base64_decode(value)
-                            html_content = html_content.replace(f"{{{{{field}}}}}", decoded)
+                            html_content = html_content.replace(f"{{{{{field}}}}}", value)
                         else:
                             html_content = html_content.replace(f"{{{{{field}}}}}", "")
 
+                    for field in ['fio', 'phone', 'email', 'bio', 'languages', 'gender', 'check', 'date']:
+                        html_content = html_content.replace(f"{{{{error_{field}}}}}", "")
+
                     self.wfile.write(html_content.encode('utf-8'))
-
-
             except Error as e:
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(f"Database error: {e}".encode('utf-8'))
 
+        elif self.path.startswith("/wb6/admin/delete/"):
+            cookie = cookies.SimpleCookie(self.headers.get('Cookie'))
+            auth_token = cookie.get("auth_token")
+            if not auth_token or not verify_jwt(auth_token.value):
+                self.send_response(302)
+                self.send_header("Location", "/wb6/login")
+                self.end_headers()
+                return 
+            payload = verify_jwt(auth_token.value)
+            if payload.get('role') != 'admin':
+                self.send_response(403)
+                self.end_headers()
+                self.wfile.write(b"Forbidden: You are not an admin")
+            app_id = self.path.split('/')[-1]
 
-            
+            try:
+                connection = mysql.connector.connect(
+                    host='u68824_3',
+                    database='u68824',
+                    user='u68824',
+                    password='u68824'
+                )
+                if connection.is_connected():
+                    cursor = connection.cursor()
+                    cursor.execute("DELETE FROM applications WHERE id = %s", (app_id,))
+                    connection.commit()
+                    cursor.close()
+                    connection.close()
+
+                    self.send_response(302)
+                    self.send_header('Location', '/admin')
+                    self.end_headers()
+            except Error as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(f"Database error: {e}".encode('utf-8'))
         else:
             self.send_response(404)
             self.end_headers()
 
     def do_POST(self):
-        if self.path.startswith("/admin/edit/"):
+        if self.path.startswith("/wb6/admin/edit/"):
             cookie = cookies.SimpleCookie(self.headers.get('Cookie'))
             auth_token = cookie.get("auth_token")
             if not auth_token or not verify_jwt(auth_token.value):
                 self.send_response(302)
-                self.send_header("Location", "/login")
+                self.send_header("Location", "/wb6/login")
                 self.end_headers()
                 return 
 
@@ -359,10 +398,10 @@ class HttpProcessor(BaseHTTPRequestHandler):
 
             try:
                 connection = mysql.connector.connect(
-                    host='localhost',
+                    host='u68824_3',
                     database='u68824',
                     user='u68824',
-                    password='MyStrongPass'
+                    password='u68824'
                 )
                 if connection.is_connected():
                     cursor = connection.cursor()
@@ -370,47 +409,36 @@ class HttpProcessor(BaseHTTPRequestHandler):
                         UPDATE applications 
                         SET full_name = %s, gender = %s, phone = %s, email = %s, date = %s, bio = %s, agreement = %s 
                         WHERE id = %s
-                    """, (fio, gender, phone, email,date,bio, bool(check), app_id))
-                    connection.commit()
+                    """, (fio, gender, phone, email, date, bio, bool(check), app_id))
                     cursor.close()
 
-                    self.send_response(302)
-                    self.send_header('Location', '/admin')
-                    self.end_headers()
-            except Error as e:
-                self.send_response(500)
-                self.end_headers()
-                self.wfile.write(f"Database error: {e}".encode('utf-8'))
-
-        elif self.path.startswith("/admin/delete/"):
-            cookie = cookies.SimpleCookie(self.headers.get('Cookie'))
-            auth_token = cookie.get("auth_token")
-            if not auth_token or not verify_jwt(auth_token.value):
-                self.send_response(302)
-                self.send_header("Location", "/login")
-                self.end_headers()
-                return 
-
-            payload = verify_jwt(auth_token.value)
-            if payload.get('role') != 'admin':
-                self.send_response(403)
-                self.end_headers()
-                self.wfile.write(b"Forbidden: You are not an admin")
-            app_id = self.path.split('/')[-1]
-
-            try:
-                connection = mysql.connector.connect(
-                    host='localhost',
-                    database='u68824',
-                    user='u68824',
-                    password='MyStrongPass'
-                )
-                if connection.is_connected():
                     cursor = connection.cursor()
-                    cursor.execute("DELETE FROM applications WHERE id = %s", (app_id,))
-                    connection.commit()
+                    cursor.execute("""
+                        DELETE FROM application_languages WHERE application_id = %s
+                    """, (app_id,))
+                    cursor.close()  
+
+                    cursor = connection.cursor(buffered=True)  # Используем буферизованный курсор
+                    for lang in languages:
+
+                        cursor.execute("""
+                            INSERT IGNORE INTO programming_languages (guid)
+                            VALUES (%s)
+                        """, (lang,))
+
+                        cursor.execute("SELECT id FROM programming_languages WHERE guid = %s", (lang,))
+                        result = cursor.fetchone()  
+                        if result:
+                            language_id = result[0]
+                        else:
+                            self.wfile.write(f"Language {lang} not found after insert.")
+
+                        cursor.execute("""
+                            INSERT INTO application_languages (application_id, language_id)
+                            VALUES (%s, %s)
+                        """, (app_id, language_id))
+                    connection.commit() 
                     cursor.close()
-                    connection.close()
 
                     self.send_response(302)
                     self.send_header('Location', '/admin')
@@ -419,8 +447,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(f"Database error: {e}".encode('utf-8'))
-
-        elif self.path == "/login":
+        elif self.path == "/wb6/login":
             form = cgi.FieldStorage(
                 fp=self.rfile, 
                 headers=self.headers, 
@@ -438,10 +465,10 @@ class HttpProcessor(BaseHTTPRequestHandler):
                 role = "admin"
             try:
                 connection = mysql.connector.connect(
-                    host='localhost',
+                    host='u68824_3',
                     database='u68824',
                     user='u68824',
-                    password='MyStrongPass'
+                    password='u68824'
                 )
                 if connection.is_connected():
                     cursor = connection.cursor()
@@ -452,20 +479,19 @@ class HttpProcessor(BaseHTTPRequestHandler):
                         if stored_hash == hash_password(password_input):
                             token = generate_jwt(user_id, role)
 
-                            full_cookie(args , kwarg ) ?
                             # +++++++++same++++++++++++
                             cookie = cookies.SimpleCookie()
                             cookie["auth_token"] = token
-                            cookie["auth_token"]["path"] = "/"
+                            cookie["auth_token"]["path"] = "/wb6/"
                             cookie["auth_token"]["max-age"] = 3600 
                             cookie["auth_token"]["httponly"] = True
                             # Сохраняем user_id в cookie
                             cookie["user_id"] = str(user_id)
-                            cookie["user_id"]["path"] = "/"
+                            cookie["user_id"]["path"] = "/wb6/"
                             cookie["user_id"]["max-age"] = 3600 
                             cookie["user_id"]["httponly"] = True
                             self.send_response(302)
-                            self.send_header("Location", "/")
+                            self.send_header("Location", "/wb6/")
                             # +++++++++same++++++++++++
                             for morsel in cookie.values():
                                 self.send_header("Set-Cookie", morsel.OutputString())
@@ -492,16 +518,16 @@ class HttpProcessor(BaseHTTPRequestHandler):
                             # +++++++++same++++++++++++
                             cookie = cookies.SimpleCookie()
                             cookie["auth_token"] = token
-                            cookie["auth_token"]["path"] = "/"
+                            cookie["auth_token"]["path"] = "/wb6/"
                             cookie["auth_token"]["max-age"] = 3600 
                             cookie["auth_token"]["httponly"] = True
                             # Сохраняем user_id в cookie
                             cookie["user_id"] = str(user_id)
-                            cookie["user_id"]["path"] = "/"
+                            cookie["user_id"]["path"] = "/wb6/"
                             cookie["user_id"]["max-age"] = 3600 
                             cookie["user_id"]["httponly"] = True
                             self.send_response(302)
-                            self.send_header("Location", "/")
+                            self.send_header("Location", "/wb6/")
                             # +++++++++same++++++++++++
                             for morsel in cookie.values():
                                 self.send_header("Set-Cookie", morsel.OutputString())
@@ -516,13 +542,13 @@ class HttpProcessor(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(f"Database error: {e}".encode('utf-8'))
-        elif self.path == "/":
+        elif self.path == "/wb6/":
             cookie = cookies.SimpleCookie(self.headers.get('Cookie'))
             auth_token = cookie.get("auth_token")
             user_id = cookie.get("user_id")
             if not auth_token or not verify_jwt(auth_token.value):
                 self.send_response(302)
-                self.send_header("Location", "/login")
+                self.send_header("Location", "/wb6/login")
                 self.end_headers()
                 return
             if not user_id:
@@ -603,10 +629,10 @@ class HttpProcessor(BaseHTTPRequestHandler):
 
             try:
                 connection = mysql.connector.connect(
-                    host='localhost',
+                    host='u68824_3',
                     database='u68824',
                     user='u68824',
-                    password='MyStrongPass'
+                    password='u68824'
                 )
                 if connection.is_connected():
                     cursor = connection.cursor(buffered=True)
