@@ -70,7 +70,7 @@
         <div>
           <label class="input">
             <div>Любимый язык программирования</div>
-            <select class="my-2" name="languages" multiple="multiple">
+            <select class="my-2" name="languages[]" multiple="multiple">
               <option value="Pascal" {{#if languages contains 'Pascal'}}selected{{/if}}>Pascal</option>
               <option value="C" {{#if languages contains 'C'}}selected{{/if}}>C</option>
               <option value="C++" {{#if languages contains 'C++'}}selected{{/if}}>C++</option>
