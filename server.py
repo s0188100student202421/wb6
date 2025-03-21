@@ -130,26 +130,39 @@ class HttpProcessor(BaseHTTPRequestHandler):
 
             errors = cookie.get('errors')
             if errors:
-                decoded_errors = safe_base64_decode(errors.value)
-                fixed_error = decoded_errors.replace("'", '"')
-                try:
-                    error_dict = json.loads(fixed_error)
-                except json.JSONDecodeError:
+                try: 
+                    decoded_errors = safe_base64_decode(errors.value)
+                    error_dict = json.loads(decoded_errors) 
+                    for field, error in error_dict.items():
+                        field_value = form_data.get(field, "")
+                        if field_value:
+                            safe_value = html.escape(safe_base64_decode(field_value.value) 
+                                        if isinstance(field_value, cookies.Morsel) 
+                                        else html.escape(field_value))
+                        else:
+                            safe_value = ""
+                        html_content = html_content.replace(
+                        f'{{{{{field}}}}}', 
+                        f'<input type="text" name="{field}" value="{safe_value}" class="error">'
+                        )
+                        safe_error = html.escape(error)
+                        html_content = html_content.replace(
+                            f"{{{{error_{field}}}}}", 
+                            f'<span class="error">{safe_error}</span>'
+                        )
+                except Exception as e:
+                    print(f"Error loading errors: {e}")
                     error_dict = {}
-                for field, error in error_dict.items():
-                    html_content = html_content.replace(
-                        f'{{{{{field}}}}}',
-                        f'<input type="text" name="{field}" value="{form_data.get(field, "")}" class="error">'
-                    )
-                    html_content = html_content.replace(f"{{{{error_{field}}}}}", f'<span class="error">{error}</span>')
 
-                for field in ['fio', 'phone', 'email', 'bio', 'languages', 'gender', 'check', 'date']:
+                for field in ['fio', 'phone', 'email', 'bio', 'languages', 'gender', 'check']:
                     if field not in error_dict:
                         html_content = html_content.replace(f"{{{{error_{field}}}}}", "")
             else:
-                for field in ['fio', 'phone', 'email', 'bio', 'languages', 'gender', 'check', 'date']:
+                for field in ['fio', 'phone', 'email', 'bio', 'languages', 'gender', 'check']:
                     html_content = html_content.replace(f"{{{{error_{field}}}}}", " ")
+
             self.wfile.write(html_content.encode('utf-8'))
+
         elif self.path == "/wb6/admin":
             cookie = cookies.SimpleCookie(self.headers.get('Cookie'))
             auth_token = cookie.get("auth_token")
@@ -323,7 +336,6 @@ class HttpProcessor(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(f"Database error: {e}".encode('utf-8'))
-
         elif self.path.startswith("/wb6/admin/delete/"):
             cookie = cookies.SimpleCookie(self.headers.get('Cookie'))
             auth_token = cookie.get("auth_token")
@@ -605,22 +617,22 @@ class HttpProcessor(BaseHTTPRequestHandler):
                     value = locals().get(field, '')
                     if value:
                         cookie[field] = safe_base64_encode(value)
-                        cookie[field]['path'] = '/'
+                        cookie[field]['path'] = "/wb6/"
                         cookie[field]['httponly'] = True
                         cookie[field]['max-age'] = 31536000
                 if languages:
                     cookie['languages'] = safe_base64_encode(",".join(languages))
-                    cookie['languages']['path'] = '/'
+                    cookie['languages']['path'] = "/wb6/"
                     cookie['languages']['httponly'] = True
                     cookie['languages']['max-age'] = 31536000
 
-                cookie["errors"] = safe_base64_encode(json.dumps(errors))
-                cookie["errors"]['path'] = '/'
+                cookie["errors"] = safe_base64_encode(json.dumps(errors, ensure_ascii=False))
+                cookie["errors"]['path'] = "/wb6/"
                 cookie["errors"]['httponly'] = True
                 cookie["errors"]['max-age'] = 3600
 
                 self.send_response(302)
-                self.send_header('Location', '/')
+                self.send_header('Location', "/wb6/")
                 # +++++++++same++++++++++++
                 for morsel in cookie.values():
                     self.send_header('Set-Cookie', morsel.OutputString())
@@ -669,14 +681,14 @@ class HttpProcessor(BaseHTTPRequestHandler):
                     cookie = cookies.SimpleCookie()
                     for field in ['fio', 'phone', 'email', 'date', 'bio', 'gender', 'check']:
                         cookie[field] = ""
-                        cookie[field]['path'] = '/'
+                        cookie[field]['path'] = "/wb6/"
                         cookie[field]['max-age'] = 0
                     if languages:
                         cookie['languages'] = ""
-                        cookie['languages']['path'] = '/'
+                        cookie['languages']['path'] = "/wb6/"
                         cookie['languages']['max-age'] = 0
                     cookie['errors'] = ""
-                    cookie['errors']['path'] = '/'
+                    cookie['errors']['path'] = "/wb6/"
                     cookie['errors']['max-age'] = 0
                     # +++++++++same++++++++++++
                     self.send_response(200)
