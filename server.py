@@ -11,6 +11,7 @@ import jwt
 import os
 import hashlib            
 import datetime       
+import html
 
 # В методе get мы отрисовываем новую форму просто+заполняем ее значениями из бд соотвественно, отображаем для пользователя+ кнопка submit и уже в пост методе 
 
@@ -82,74 +83,154 @@ class HttpProcessor(BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
             try:
-                with open('login.html', 'r', encoding='utf-8') as file:
+                file_path = os.path.join(os.path.dirname(__file__), "login.html")
+                with open(file_path, 'r', encoding='utf-8') as file:
                     content = file.read()
                 self.wfile.write(content.encode('utf-8'))
             except FileNotFoundError:
                 self.wfile.write(b"login.html not found")
+        
         elif self.path == "/wb6/":
-            cookie = cookies.SimpleCookie(self.headers.get('Cookie'))
+            cookie = cookies.SimpleCookie(self.headers.get("Cookie"))
             auth_token = cookie.get("auth_token")
+            # Если JWT отсутствует — перенаправляем на страницу логина.
             if not auth_token or not verify_jwt(auth_token.value):
                 self.send_response(302)
                 self.send_header("Location", "/wb6/login")
                 self.end_headers()
                 return
 
-            self.send_response(200)
-            self.send_header('Content-Type', 'text/html; charset=utf-8')
-            self.end_headers()
-
+            # Авторизованный пользователь: данные заполняем из таблицы (не из cookie)
+            token_payload = verify_jwt(auth_token.value)
+            user_id = token_payload.get("user_id")
+            form_data = {}  # заполним данные заявки из БД
             try:
-                with open('server.html', 'r', encoding='utf-8') as file:
+                connection = mysql.connector.connect(
+                    host='u68824_3',
+                    database='u68824',
+                    user='u68824',
+                    password='u68824'
+                )
+
+                cursor = connection.cursor(dictionary=True)
+                # Выбираем последнюю заявку данного пользователя
+                cursor.execute("""
+                    SELECT id, full_name, gender, phone, email, date, bio, agreement
+                    FROM applications
+                    WHERE user_id = %s
+                    ORDER BY id DESC
+                    LIMIT 1
+                """, (user_id,))
+                application = cursor.fetchone()
+                if application:
+                    form_data["fio"]    = application.get("full_name", "")
+                    form_data["gender"] = application.get("gender", "")
+                    form_data["phone"]  = application.get("phone", "")
+                    form_data["email"]  = application.get("email", "")
+                    # Для поля date, если тип DATE, приводим к строке:
+                    form_data["date"]   = str(application.get("date", ""))
+                    form_data["bio"]    = application.get("bio", "")
+                    form_data["check"]  = "on" if application.get("agreement") else ""
+                    app_id = application.get("id")
+                else:
+                    # Если записи нет, заполняем пустыми значениями
+                    for field in ["fio", "gender", "phone", "email", "date", "bio", "check"]:
+                        form_data[field] = ""
+                    app_id = None
+
+                # Выбираем языки по заявке, если есть запись
+                if app_id:
+                    cursor.execute("""
+                        SELECT pl.guid
+                        FROM programming_languages pl
+                        JOIN application_languages al ON pl.id = al.language_id
+                        WHERE al.application_id = %s
+                    """, (app_id,))
+                    langs = cursor.fetchall()
+                    if langs:
+                        form_data["languages"] = ",".join([row["guid"] for row in langs])
+                    else:
+                        form_data["languages"] = ""
+                else:
+                    form_data["languages"] = ""
+
+                cursor.close()
+                connection.close()
+            except Error as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(f"Database error: {e}".encode("utf-8"))
+                return
+
+            # Загружаем HTML-шаблон страницы (server.html)
+            try:
+                with open("server.html", "r", encoding="utf-8") as file:
                     html_content = file.read()
             except FileNotFoundError:
+                self.send_response(404)
+                self.end_headers()
                 self.wfile.write(b"server.html not found")
                 return
 
-            form_data = {
-                'fio': cookie.get('fio'),
-                'phone': cookie.get('phone'),
-                'email': cookie.get('email'),
-                'date': cookie.get('date'),
-                'bio': cookie.get('bio'),
-                'languages': cookie.get('languages'),
-                'gender': cookie.get('gender'),
-                'check': cookie.get('check')
-            }
+            # Если в cookies установлен флаг успеха, вставляем блок с авто-сгенерированными данными
+            success_cookie = cookie.get("success")
+            if success_cookie and success_cookie.value == "1":
+                # Используем данные автогенерации из cookies (например, для вывода сообщения)
+                auto_login_val = cookie.get("login").value if cookie.get("login") else "Unknown"
+                success_html = f'<div class="success-message">Data successfully sent! Login: {html.escape(auto_login_val)}</div>'
+                html_content = html_content.replace("<button type=\"submit\"", f"{success_html}<button type=\"submit\"")
 
+            # Подставляем значения из form_data в шаблон
             for field, value in form_data.items():
-                if value:
-                    if isinstance(value, cookies.Morsel):
-                        decoded = safe_base64_decode(value.value)
-                    else:
-                        decoded = safe_base64_decode(value)
-                    html_content = html_content.replace(f"{{{{{field}}}}}", decoded)
+                # Приводим значение к строке (если это не строка)
+                if value is None:
+                    replace_val = ""
                 else:
-                    html_content = html_content.replace(f"{{{{{field}}}}}", "")
-
-            errors = cookie.get('errors')
-            if errors:
-                decoded_errors = safe_base64_decode(errors.value)
-                fixed_error = decoded_errors.replace("'", '"')
-                try:
-                    error_dict = json.loads(fixed_error)
-                except json.JSONDecodeError:
-                    error_dict = {}
-                for field, error in error_dict.items():
-                    html_content = html_content.replace(
-                        f'{{{{{field}}}}}',
-                        f'<input type="text" name="{field}" value="{form_data.get(field, "")}" class="error">'
-                    )
-                    html_content = html_content.replace(f"{{{{error_{field}}}}}", f'<span class="error">{error}</span>')
-
-                for field in ['fio', 'phone', 'email', 'bio', 'languages', 'gender', 'check', 'date']:
-                    if field not in error_dict:
-                        html_content = html_content.replace(f"{{{{error_{field}}}}}", "")
+                    replace_val = str(value)
+                html_content = html_content.replace(f"{{{{{field}}}}}", replace_val)
+            
+            # Обработка радио-кнопок для gender
+            gender_val = form_data.get("gender", "")
+            if gender_val == "M":
+                html_content = html_content.replace("{{#if gender == 'M'}}checked{{/if}}", "checked")
+                html_content = html_content.replace("{{#if gender == 'F'}}checked{{/if}}", "")
+            elif gender_val == "F":
+                html_content = html_content.replace("{{#if gender == 'M'}}checked{{/if}}", "")
+                html_content = html_content.replace("{{#if gender == 'F'}}checked{{/if}}", "checked")
             else:
-                for field in ['fio', 'phone', 'email', 'bio', 'languages', 'gender', 'check', 'date']:
-                    html_content = html_content.replace(f"{{{{error_{field}}}}}", " ")
-            self.wfile.write(html_content.encode('utf-8'))
+                html_content = html_content.replace("{{#if gender == 'M'}}checked{{/if}}", "")
+                html_content = html_content.replace("{{#if gender == 'F'}}checked{{/if}}", "")
+
+            # Обработка селекторов для языков
+            languages_val = form_data.get("languages", "")
+            selected_languages = [lang.strip() for lang in languages_val.split(",") if lang.strip()]
+            all_languages = [
+                "Pascal", 
+                "C", 
+                "C++", 
+                "JavaScript", 
+                "PHP", 
+                "Python",
+                "Java", 
+                "Haskell", 
+                "Clojure", 
+                "Scala"
+            ]
+            for lang in all_languages:
+                pattern = f"{{{{#if languages contains '{lang}'}}}}selected{{{{/if}}}}"
+                if lang in selected_languages:
+                    html_content = html_content.replace(pattern, "selected")
+                else:
+                    html_content = html_content.replace(pattern, "")
+            for field in ["fio", "gender", "phone", "email", "date", "bio", "languages", "check"]:
+                html_content = html_content.replace(f"{{{{error_{field}}}}}", "")
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(html_content.encode("utf-8"))
+            return
+
         elif self.path == "/wb6/admin":
             cookie = cookies.SimpleCookie(self.headers.get('Cookie'))
             auth_token = cookie.get("auth_token")
@@ -175,6 +256,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                     user='u68824',
                     password='u68824'
                 )
+
                 if connection.is_connected():
                     cursor = connection.cursor(dictionary=True)
                     cursor.execute("SELECT * FROM programming_languages")
@@ -195,7 +277,6 @@ class HttpProcessor(BaseHTTPRequestHandler):
                     cursor2 = connection.cursor(dictionary=True)
                     for app in applications:
                         application_id = app['id']
-                        #это нихуя не работает, рассмотреть базу данных
                         cursor2.execute("""
                             SELECT 
                                 pl.guid
@@ -296,6 +377,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                     user='u68824',
                     password='u68824'
                 )
+
                 if connection.is_connected():
                     cursor = connection.cursor()
                     cursor.execute("""
@@ -323,7 +405,6 @@ class HttpProcessor(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(f"Database error: {e}".encode('utf-8'))
-
         elif self.path.startswith("/wb6/admin/delete/"):
             cookie = cookies.SimpleCookie(self.headers.get('Cookie'))
             auth_token = cookie.get("auth_token")
@@ -346,6 +427,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                     user='u68824',
                     password='u68824'
                 )
+
                 if connection.is_connected():
                     cursor = connection.cursor()
                     cursor.execute("DELETE FROM applications WHERE id = %s", (app_id,))
@@ -403,6 +485,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                     user='u68824',
                     password='u68824'
                 )
+
                 if connection.is_connected():
                     cursor = connection.cursor()
                     cursor.execute("""
@@ -470,6 +553,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                     user='u68824',
                     password='u68824'
                 )
+
                 if connection.is_connected():
                     cursor = connection.cursor()
                     cursor.execute("SELECT user_id, hashed_password FROM users WHERE login = %s", (login_input,))
@@ -509,7 +593,7 @@ class HttpProcessor(BaseHTTPRequestHandler):
                                 (login_input, hashed_pwd)
                             )
                             role = "user"
-                            if login_input == "kovoya" and password_input == "admin123":
+                            if login_input == "admin" and password_input == "admin":
                                 role = "admin"
 
                             user_id = cursor.lastrowid
@@ -605,22 +689,22 @@ class HttpProcessor(BaseHTTPRequestHandler):
                     value = locals().get(field, '')
                     if value:
                         cookie[field] = safe_base64_encode(value)
-                        cookie[field]['path'] = '/'
+                        cookie[field]['path'] = "/wb6/"
                         cookie[field]['httponly'] = True
                         cookie[field]['max-age'] = 31536000
                 if languages:
                     cookie['languages'] = safe_base64_encode(",".join(languages))
-                    cookie['languages']['path'] = '/'
+                    cookie['languages']['path'] = "/wb6/"
                     cookie['languages']['httponly'] = True
                     cookie['languages']['max-age'] = 31536000
 
-                cookie["errors"] = safe_base64_encode(json.dumps(errors))
-                cookie["errors"]['path'] = '/'
+                cookie["errors"] = safe_base64_encode(json.dumps(errors, ensure_ascii=False))
+                cookie["errors"]['path'] = "/wb6/"
                 cookie["errors"]['httponly'] = True
                 cookie["errors"]['max-age'] = 3600
 
                 self.send_response(302)
-                self.send_header('Location', '/')
+                self.send_header('Location', "/wb6/")
                 # +++++++++same++++++++++++
                 for morsel in cookie.values():
                     self.send_header('Set-Cookie', morsel.OutputString())
@@ -668,23 +752,35 @@ class HttpProcessor(BaseHTTPRequestHandler):
                     # +++++++++same++++++++++++
                     cookie = cookies.SimpleCookie()
                     for field in ['fio', 'phone', 'email', 'date', 'bio', 'gender', 'check']:
-                        cookie[field] = ""
-                        cookie[field]['path'] = '/'
-                        cookie[field]['max-age'] = 0
+                        value = locals().get(field, '')
+                        cookie[field] = safe_base64_encode(value)
+                        cookie[field]['path'] = "/wb6/"
+                        cookie[field]['httponly'] = True
+                        cookie[field]['max-age'] = 31536000
                     if languages:
-                        cookie['languages'] = ""
-                        cookie['languages']['path'] = '/'
-                        cookie['languages']['max-age'] = 0
+                        cookie['languages'] = safe_base64_encode(",".join(languages))
+                        cookie['languages']['path'] = '/wb5/'
+                        cookie['languages']['httponly'] = True
+                        cookie['languages']['max-age'] = 31536000
+
                     cookie['errors'] = ""
-                    cookie['errors']['path'] = '/'
-                    cookie['errors']['max-age'] = 0
+                    cookie['errors']['path'] = '/wb5/'
+                    cookie['errors']['max-age'] = 31536000
+
+                    cookie['success'] = '1'
+                    cookie['languages']['path'] = '/wb5/'
+                    cookie['languages']['max-age'] = 100
+
+                    cookie['login'] = safe_base64_encode(login)
+                    cookie['languages']['path'] = '/wb5/'
+                    cookie['languages']['max-age'] = 100
                     # +++++++++same++++++++++++
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'text/html; charset=utf-8')
+                    self.send_response(302)
+                    self.send_header('Location', '/wb6/')
                     for morsel in cookie.values():
                         self.send_header('Set-Cookie', morsel.OutputString())
                     self.end_headers()
-                    self.wfile.write(f"Data successfully sent! Login: {login}".encode('utf-8'))
+
             except Error as e:
                 self.send_response(500)
                 self.end_headers()

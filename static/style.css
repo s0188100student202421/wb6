@@ -1,3 +1,32 @@
+/* Стили для текста ошибки (красный цвет) */
+.error {
+  color: red;
+  font-size: 14px;
+  margin-top: 5px;
+  display: block;
+}
+
+/* Стилизация полей с ошибками (красная рамка) */
+.input.error-field {
+  border: 1px solid red !important;
+}
+.form.success {
+  border: 3px solid #4CAF50 !important;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.success-message {
+  color: #4CAF50;
+  font-weight: bold;
+  margin: 15px 0;
+  padding: 10px;
+  text-align: center;
+  border: 1px solid #4CAF50;
+  border-radius: 4px;
+  background-color: #f8fff8;
+}
+/* Остальные стили (ваши текущие) */
 body {
   font-family: Arial, sans-serif;
   background-color: #f8f9fa;
@@ -15,7 +44,6 @@ body {
   padding: 20px;
 }
 
-
 .form-container {
   background-color: #ffffff;
   padding: 50px;
@@ -23,7 +51,6 @@ body {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   border: 1px solid #ddd;
 }
-
 
 .head {
   text-align: center;
@@ -35,8 +62,7 @@ body {
   color: #333;
 }
 
-
-.form-control {
+.input {
   width: 100%;
   padding: 13px;
   margin-bottom: 15px;
@@ -45,11 +71,9 @@ body {
   font-size: 16px;
 }
 
-
 select[multiple] {
   height: 120px;
 }
-
 
 .button {
   width: 100%;
@@ -66,22 +90,10 @@ select[multiple] {
   background-color: #0056b3;
 }
 
-
-.oznakomlen {
-  display: block;
-  margin-top: 10px;
-}
-
-.error{
-  border-color: red;
-}
-
-
 @media (max-width: 768px) {
   .container {
     padding: 10px;
   }
-
   .form-container {
     padding: 20px;
   }
