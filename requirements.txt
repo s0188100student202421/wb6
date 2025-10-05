@@ -1,3 +1,6 @@
 mysql-connector-python
 pyjwt
 cryptography
+psycopg2-binary
+
+

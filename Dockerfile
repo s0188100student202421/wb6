@@ -6,4 +6,19 @@ COPY . /app
 
 RUN pip install -r requirements.txt
 
+### 172.17.0.2
+#ENV DB_WRITE_HOST=192.168.56.10
+#ENV DB_READ_HOST=192.168.56.11
+#ENV DB_NAME=u68824
+#ENV DB_USER=u68824
+#ENV DB_PASS=mysecret
+#ENV DB_PORT=5432
+
+ENV DB_WRITE_HOST=127.0.0.1
+ENV DB_READ_HOST=127.0.0.1
+ENV DB_NAME=u68824
+ENV DB_USER=postgres
+ENV DB_PASS=postgres
+ENV DB_PORT=5555
+
 CMD ["python3", "server.py"]
