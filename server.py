@@ -24,12 +24,14 @@ SECRET_KEY = os.environ.get('JWT_SECRET_KEY')
 if not SECRET_KEY:
     SECRET_KEY = secrets.token_hex(32)
     print("Warning: JWT_SECRET_KEY not set in environment. Using generated ephemeral key")
-# --------------------------------------------------------------------------
 
-# ------------- DB config (read/write hosts) -----------------
-# По умолчанию использованы старые значения из твоего кода, но ты можешь переопределить через env:
-# export DB_WRITE_HOST=192.168.56.10
-# export DB_READ_HOST=192.168.56.11
+
+DB_WRITE_HOST = os.getenv("DB_WRITE_HOST", "192.168.56.10")
+DB_READ_HOST  = os.getenv("DB_READ_HOST", "192.168.56.11")
+DB_NAME       = os.getenv("DB_NAME", "u68824")
+DB_USER       = os.getenv("DB_USER", "postgres")
+DB_PASS       = os.getenv("DB_PASS", "postgres")
+DB_PORT       = int(os.getenv("DB_PORT", 5555))
 
 def get_connection(read=True, allow_fallback=None, connect_timeout=5):
     if allow_fallback is None:
